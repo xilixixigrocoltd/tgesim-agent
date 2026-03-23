@@ -48,7 +48,7 @@ export function setCookieToken(res: any, token: string) {
   res.setHeader('Set-Cookie', cookie.serialize('token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'strict',
     maxAge: 7 * 24 * 60 * 60, // 7 days
     path: '/'
   }))

@@ -29,12 +29,13 @@ export default function Login() {
       if (!res.ok) {
         setError(data.error || '登录失败')
       } else {
+        // 用 window.location 强制刷新，确保 Cookie 生效
         if (data.role === 'admin') {
-          router.push('/admin')
+          window.location.href = '/admin'
         } else if (data.status === 'active') {
-          router.push('/dashboard')
+          window.location.href = '/dashboard'
         } else {
-          router.push('/pending')
+          window.location.href = '/pending'
         }
       }
     } catch {
