@@ -1,40 +1,134 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# tgesim Agent Portal
 
-## Getting Started
+代理商后台管理系统，基于 Next.js 14 + Supabase 构建。
 
-First, run the development server:
+## 技术栈
+
+- **前端**: Next.js 14 + TypeScript + Tailwind CSS（Pages Router）
+- **数据库**: Supabase（PostgreSQL）
+- **认证**: 自定义 JWT（bcryptjs + jsonwebtoken）
+- **部署**: Vercel
+
+## 功能
+
+### 代理商功能
+- 邀请码注册、邮箱登录
+- 查看账户余额
+- USDT 充值申请（TRC20）
+- 浏览 tgesim 产品列表
+- 下单购买 eSIM（自动发货）
+- 查看订单历史和 eSIM 激活码
+- 余额流水记录
+- 查看个人 API Key
+
+### 管理员功能（/admin）
+- 代理商注册审核
+- 充值记录确认/拒绝
+- 邀请码生成管理
+- 数据总览
+
+## 快速开始
+
+### 1. 创建 Supabase 项目
+
+1. 前往 [supabase.com](https://supabase.com) 创建免费项目
+2. 在 SQL Editor 运行 `supabase/schema.sql`
+3. 获取项目 URL 和 API Keys
+
+### 2. 配置环境变量
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+编辑 `.env.local`:
+```
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+JWT_SECRET=your-random-secret-key-here
+```
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+### 3. 创建管理员账号
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+在 Supabase SQL Editor 运行：
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+```sql
+-- 先生成密码 hash（在本地运行）
+-- node -e "const b=require('bcryptjs'); b.hash('yourpassword',12).then(console.log)"
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+INSERT INTO agents (email, password_hash, name, role, status) 
+VALUES ('admin@tgesim.com', '生成的hash', 'Admin', 'admin', 'active');
+```
 
-## Learn More
+### 4. 安装依赖并运行
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
+### 5. 部署到 Vercel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# 安装 Vercel CLI
+npm i -g vercel
 
-## Deploy on Vercel
+# 部署
+vercel --prod
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+在 Vercel 项目设置中配置相同的环境变量。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+## 项目结构
+
+```
+tgesim-agent/
+├── pages/
+│   ├── index.tsx          # 首页（跳转）
+│   ├── login.tsx          # 登录
+│   ├── register.tsx       # 注册（需邀请码）
+│   ├── pending.tsx        # 等待审核
+│   ├── dashboard.tsx      # 代理商首页
+│   ├── products.tsx       # 产品列表
+│   ├── orders.tsx         # 我的订单
+│   ├── recharge.tsx       # 充值
+│   ├── balance.tsx        # 余额记录
+│   ├── profile.tsx        # 个人资料
+│   └── admin/
+│       ├── index.tsx      # 管理总览
+│       ├── agents.tsx     # 代理商管理
+│       ├── recharges.tsx  # 充值审核
+│       └── invites.tsx    # 邀请码管理
+├── lib/
+│   ├── supabase.ts        # Supabase 客户端
+│   ├── tgesim-api.ts      # tgesim API 封装
+│   ├── auth.ts            # 认证逻辑（JWT）
+│   └── middleware.ts      # 路由保护
+├── components/
+│   ├── Layout.tsx
+│   ├── Navbar.tsx
+│   └── ui/
+│       ├── Badge.tsx
+│       ├── Button.tsx
+│       ├── Card.tsx
+│       └── Input.tsx
+├── supabase/
+│   └── schema.sql         # 数据库建表语句
+└── .env.example           # 环境变量模板
+```
+
+## tgesim API
+
+API 配置在 `lib/tgesim-api.ts`，使用 HMAC-SHA256 签名：
+
+```
+Base URL: https://api.xigrocoltd.com
+API Key: ak_95d86e46bd2628dd253b0b15d5aab1d97998787d
+```
+
+## USDT 收款地址
+
+```
+TBuhpRpFPV1HkdfaPEdxsKgTE43jV911rL（TRC20）
+```
