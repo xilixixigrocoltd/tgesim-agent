@@ -235,7 +235,28 @@ export const getServerSideProps: GetServerSideProps = withAuth(async (ctx, user)
   let error: string | undefined
 
   try {
-    products = await getProducts()
+    // 从 Supabase miniapp_products 表读取（1984个上架产品，已过滤亏本和冷门）
+    const { data, error: dbError } = await supabase
+      .from('miniapp_products')
+      .select('*')
+      .eq('is_active', true)
+      .order('profit_rate', { ascending: false })
+      .limit(500)
+
+    if (dbError) throw new Error(dbError.message)
+    products = (data || []).map(p => ({
+      id: p.id,
+      name: p.name,
+      description: `${p.country} | ${p.type} | 利润率${p.profit_rate}%`,
+      price: p.price,
+      currency: 'USD',
+      data_gb: p.data_size ? p.data_size / 1024 : 0,
+      validity_days: p.valid_days,
+      countries: [p.country],
+      country: p.country,
+      type: p.type,
+      profit_rate: p.profit_rate,
+    }))
   } catch (e: any) {
     error = e.message || '获取产品失败'
   }

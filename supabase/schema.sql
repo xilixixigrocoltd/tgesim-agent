@@ -91,3 +91,37 @@ ALTER TABLE balance_logs DISABLE ROW LEVEL SECURITY;
 -- Generate new hash: node -e "const b=require('bcryptjs'); b.hash('yourpassword',12).then(console.log)"
 -- INSERT INTO agents (email, password_hash, name, role, status) 
 -- VALUES ('admin@tgesim.com', '$2a$12$...', 'Admin', 'admin', 'active');
+
+-- miniapp 订单表（2026-03-24 添加）
+CREATE TABLE IF NOT EXISTS miniapp_orders (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id TEXT,
+  tg_id TEXT,
+  tg_username TEXT,
+  product_id TEXT,
+  product_name TEXT,
+  amount DECIMAL(10,2),
+  currency TEXT DEFAULT 'USDT',
+  status TEXT DEFAULT 'pending',
+  tx_hash TEXT,
+  b2b_order_id TEXT,
+  esim_iccid TEXT,
+  esim_qr_code TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- miniapp 产品表（2026-03-24 添加）
+CREATE TABLE IF NOT EXISTS miniapp_products (
+  id TEXT PRIMARY KEY,
+  name TEXT,
+  country TEXT,
+  type TEXT,
+  data_size INTEGER,
+  valid_days INTEGER,
+  price DECIMAL(10,2),
+  cost_price DECIMAL(10,2),
+  profit_rate DECIMAL(5,2),
+  is_active BOOLEAN DEFAULT true,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
