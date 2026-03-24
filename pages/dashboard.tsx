@@ -14,10 +14,12 @@ type Props = {
   agentType: string
   discountRate: number
   pendingCommission: number
+  settledThisMonth: number
+  recentCommissions: any[]
   referralCode: string
 }
 
-export default function Dashboard({ user, balance, orderCount, recentOrders, agentType, discountRate, pendingCommission, referralCode }: Props) {
+export default function Dashboard({ user, balance, orderCount, recentOrders, agentType, discountRate, pendingCommission, settledThisMonth, recentCommissions, referralCode }: Props) {
   const isReseller = agentType === 'reseller'
 
   const quickActions = [
@@ -76,12 +78,19 @@ export default function Dashboard({ user, balance, orderCount, recentOrders, age
 
         {/* Stats - Affiliate */}
         {!isReseller && (
-          <div className="grid grid-cols-2 gap-4">
-            <Card className="text-center">
-              <p className="text-sm text-gray-500 mb-1">待结佣金</p>
-              <p className="text-3xl font-bold text-green-500">${pendingCommission.toFixed(2)}</p>
-              <p className="text-xs text-gray-400 mt-1">USDT结算</p>
-            </Card>
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="text-center">
+                <p className="text-sm text-gray-500 mb-1">待结佣金</p>
+                <p className="text-3xl font-bold text-green-500">${pendingCommission.toFixed(2)}</p>
+                <p className="text-xs text-gray-400 mt-1">USDT 每周结算</p>
+              </Card>
+              <Card className="text-center">
+                <p className="text-sm text-gray-500 mb-1">本月已结算</p>
+                <p className="text-3xl font-bold text-blue-500">${settledThisMonth.toFixed(2)}</p>
+                <p className="text-xs text-gray-400 mt-1">USDT</p>
+              </Card>
+            </div>
             <Card className="text-center">
               <p className="text-sm text-gray-500 mb-1">总订单数</p>
               <p className="text-3xl font-bold text-gray-800">{orderCount}</p>
@@ -89,7 +98,7 @@ export default function Dashboard({ user, balance, orderCount, recentOrders, age
                 查看订单 →
               </Link>
             </Card>
-          </div>
+          </>
         )}
 
         {isReseller && (
@@ -120,6 +129,34 @@ export default function Dashboard({ user, balance, orderCount, recentOrders, age
                 复制
               </button>
             </div>
+          </Card>
+        )}
+
+        {/* Commission Records - Affiliate only */}
+        {!isReseller && recentCommissions.length > 0 && (
+          <Card>
+            <h2 className="text-lg font-semibold text-gray-800 mb-3">最近佣金记录</h2>
+            <div className="space-y-2">
+              {recentCommissions.map((c: any) => (
+                <div key={c.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{c.product_name || `订单 #${c.order_id?.slice(0, 8)}`}</p>
+                    <p className="text-xs text-gray-500">佣金率 {Math.round(c.commission_rate * 100)}%</p>
+                  </div>
+                  <div className="text-right ml-3">
+                    <p className="text-sm font-semibold text-green-600">+${(c.commission_amount || 0).toFixed(2)}</p>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      c.status === 'paid' ? 'bg-green-100 text-green-600' :
+                      c.status === 'processing' ? 'bg-blue-100 text-blue-600' :
+                      'bg-yellow-100 text-yellow-600'
+                    }`}>
+                      {c.status === 'paid' ? '已结算' : c.status === 'processing' ? '结算中' : '待结算'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 mt-3 text-center">每周一自动结算至您的 USDT 钱包</p>
           </Card>
         )}
 
@@ -201,16 +238,44 @@ export const getServerSideProps: GetServerSideProps = withAuth(async (ctx, user)
     .order('created_at', { ascending: false })
     .limit(5)
 
-  // Pending commission for affiliate
+  // Commission data for affiliate agents
   let pendingCommission = 0
+  let settledThisMonth = 0
+  let recentCommissions: any[] = []
+
   if (agent?.agent_type === 'affiliate') {
-    const { data: commissions } = await supabase
+    // Pending commissions
+    const { data: pendingData } = await supabase
       .from('commissions')
       .select('commission_amount')
       .eq('agent_id', user.id)
       .eq('status', 'pending')
 
-    pendingCommission = (commissions || []).reduce((sum: number, c: any) => sum + (c.commission_amount || 0), 0)
+    pendingCommission = (pendingData || []).reduce((sum: number, c: any) => sum + (c.commission_amount || 0), 0)
+
+    // This month settled (paid)
+    const monthStart = new Date()
+    monthStart.setDate(1)
+    monthStart.setHours(0, 0, 0, 0)
+
+    const { data: settledData } = await supabase
+      .from('commissions')
+      .select('commission_amount')
+      .eq('agent_id', user.id)
+      .eq('status', 'paid')
+      .gte('updated_at', monthStart.toISOString())
+
+    settledThisMonth = (settledData || []).reduce((sum: number, c: any) => sum + (c.commission_amount || 0), 0)
+
+    // Recent 10 commissions
+    const { data: recentData } = await supabase
+      .from('commissions')
+      .select('id, order_id, product_name, commission_amount, commission_rate, status, created_at')
+      .eq('agent_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    recentCommissions = recentData || []
   }
 
   return {
@@ -222,6 +287,8 @@ export const getServerSideProps: GetServerSideProps = withAuth(async (ctx, user)
       agentType: agent?.agent_type || 'affiliate',
       discountRate: agent?.discount_rate || 1.0,
       pendingCommission,
+      settledThisMonth,
+      recentCommissions,
       referralCode: agent?.referral_code || user.id.slice(0, 8),
     },
   }

@@ -14,9 +14,10 @@ type Props = {
   balance: number
   agentType: string
   discountRate: number
+  referralCode?: string | null
 }
 
-export default function Products({ user, products, error, balance, agentType, discountRate }: Props) {
+export default function Products({ user, products, error, balance, agentType, discountRate, referralCode }: Props) {
   const router = useRouter()
   const [selectedProduct, setSelectedProduct] = useState<TgesimProduct | null>(null)
   const [customerEmail, setCustomerEmail] = useState('')
@@ -24,8 +25,29 @@ export default function Products({ user, products, error, balance, agentType, di
   const [orderError, setOrderError] = useState('')
   const [orderSuccess, setOrderSuccess] = useState('')
   const [search, setSearch] = useState('')
+  const [copySuccess, setCopySuccess] = useState(false)
 
   const isReseller = agentType === 'reseller'
+  const referralLink = referralCode ? `https://t.me/Esim_sal_bot?start=ref_${referralCode}` : null
+
+  const handleCopyLink = async () => {
+    if (!referralLink) return
+    try {
+      await navigator.clipboard.writeText(referralLink)
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
+    } catch {
+      // fallback
+      const el = document.createElement('textarea')
+      el.value = referralLink
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
+    }
+  }
 
   const filtered = products.filter(p =>
     p.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -109,8 +131,31 @@ export default function Products({ user, products, error, balance, agentType, di
             显示折扣进货价（成本 ÷ {discountRate}）。下单后从余额扣除进货价，您可按任意零售价出售，差价全归您。
           </div>
         ) : (
-          <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">
-            显示零售价及预计佣金。客户通过您的推荐链接购买后，系统自动按利润比例结佣（A类80% / B类70% / C类60%）。
+          <div className="space-y-2">
+            <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">
+              显示零售价及预计佣金。客户通过您的推荐链接购买后，系统自动按利润比例结佣（A类80% / B类70% / C类60%）。
+            </div>
+            {referralLink && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
+                <p className="text-xs font-medium text-green-700 mb-1">🔗 您的专属推荐链接</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-white border border-green-200 rounded-lg px-2 py-1.5 text-green-800 overflow-hidden text-ellipsis whitespace-nowrap">
+                    {referralLink}
+                  </code>
+                  <button
+                    onClick={handleCopyLink}
+                    className={`flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      copySuccess
+                        ? 'bg-green-500 text-white'
+                        : 'bg-green-600 hover:bg-green-700 text-white'
+                    }`}
+                  >
+                    {copySuccess ? '✓ 已复制' : '复制'}
+                  </button>
+                </div>
+                <p className="text-xs text-green-600 mt-1">分享给客户，客户购买后自动归因您的账户</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -320,7 +365,7 @@ export const getServerSideProps: GetServerSideProps = withAuth(async (ctx, user)
 
   const { data: agent } = await supabase
     .from('agents')
-    .select('balance, agent_type, discount_rate')
+    .select('balance, agent_type, discount_rate, referral_code')
     .eq('id', user.id)
     .single()
 
