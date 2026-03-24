@@ -14,6 +14,7 @@ export default function Register() {
     name: '',
     telegram: '',
     inviteCode: '',
+    agentType: 'affiliate',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -48,6 +49,7 @@ export default function Register() {
           name: form.name,
           telegram: form.telegram,
           inviteCode: form.inviteCode,
+          agentType: form.agentType,
         }),
       })
 
@@ -90,6 +92,78 @@ export default function Register() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Agent Type Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  代理模式 <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label
+                    className={`relative flex flex-col p-3 rounded-xl border-2 cursor-pointer transition-colors ${
+                      form.agentType === 'affiliate'
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="agentType"
+                      value="affiliate"
+                      checked={form.agentType === 'affiliate'}
+                      onChange={handleChange}
+                      className="sr-only"
+                    />
+                    <span className="text-xl mb-1">🔗</span>
+                    <span className="font-semibold text-sm text-gray-800">推广代理</span>
+                    <span className="text-xs text-gray-500 mt-1">零充值，分享链接赚佣金（利润80%）</span>
+                    {form.agentType === 'affiliate' && (
+                      <span className="absolute top-2 right-2 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
+                        <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </span>
+                    )}
+                  </label>
+
+                  <label
+                    className={`relative flex flex-col p-3 rounded-xl border-2 cursor-pointer transition-colors ${
+                      form.agentType === 'reseller'
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="agentType"
+                      value="reseller"
+                      checked={form.agentType === 'reseller'}
+                      onChange={handleChange}
+                      className="sr-only"
+                    />
+                    <span className="text-xl mb-1">💰</span>
+                    <span className="font-semibold text-sm text-gray-800">充值代理</span>
+                    <span className="text-xs text-gray-500 mt-1">先充值，折扣进货，差价归自己</span>
+                    {form.agentType === 'reseller' && (
+                      <span className="absolute top-2 right-2 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
+                        <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </span>
+                    )}
+                  </label>
+                </div>
+                {form.agentType === 'affiliate' && (
+                  <p className="mt-2 text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">
+                    💡 推荐给初期代理：无需投入，分享专属链接，客户付款后系统自动结佣到USDT钱包
+                  </p>
+                )}
+                {form.agentType === 'reseller' && (
+                  <p className="mt-2 text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2">
+                    💡 推荐给有资源的代理：充值后享受折扣进货价，自由定价，差价全归自己
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   邀请码 <span className="text-red-500">*</span>

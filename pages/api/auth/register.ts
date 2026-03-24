@@ -5,7 +5,7 @@ import { hashPassword, signToken, setCookieToken } from '@/lib/auth'
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const { email, password, name, telegram, inviteCode } = req.body
+  const { email, password, name, telegram, inviteCode, agentType } = req.body
 
   if (!email || !password || !inviteCode) {
     return res.status(400).json({ error: '请填写所有必填项' })
@@ -53,6 +53,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       invite_code_used: inviteCode.trim(),
       role: 'agent',
       status: 'pending',
+      agent_type: agentType === 'reseller' ? 'reseller' : 'affiliate',
+      discount_rate: agentType === 'reseller' ? 0.85 : 1.0,
     })
     .select()
     .single()

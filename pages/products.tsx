@@ -12,9 +12,11 @@ type Props = {
   products: TgesimProduct[]
   error?: string
   balance: number
+  agentType: string
+  discountRate: number
 }
 
-export default function Products({ user, products, error, balance }: Props) {
+export default function Products({ user, products, error, balance, agentType, discountRate }: Props) {
   const router = useRouter()
   const [selectedProduct, setSelectedProduct] = useState<TgesimProduct | null>(null)
   const [customerEmail, setCustomerEmail] = useState('')
@@ -23,10 +25,21 @@ export default function Products({ user, products, error, balance }: Props) {
   const [orderSuccess, setOrderSuccess] = useState('')
   const [search, setSearch] = useState('')
 
+  const isReseller = agentType === 'reseller'
+
   const filtered = products.filter(p =>
     p.name?.toLowerCase().includes(search.toLowerCase()) ||
     p.description?.toLowerCase().includes(search.toLowerCase())
   )
+
+  // For reseller: wholesale price = cost / discount_rate (e.g. cost $1.48 / 0.85 = $1.74)
+  // For affiliate: show retail price + estimated commission
+  const getWholesalePrice = (retailPrice: number, costPrice: number) => {
+    if (discountRate && discountRate < 1) {
+      return (costPrice / discountRate)
+    }
+    return costPrice * 1.15
+  }
 
   const handleOrder = async () => {
     if (!selectedProduct || !customerEmail) return
@@ -65,11 +78,31 @@ export default function Products({ user, products, error, balance }: Props) {
     <Layout title="产品列表 - tgesim Agent Portal" user={user}>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">产品列表</h1>
-          <div className="text-sm text-gray-500">
-            余额: <span className="font-semibold text-orange-500">${balance.toFixed(2)}</span>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">产品列表</h1>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+              isReseller ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+            }`}>
+              {isReseller ? '💰 充值代理视图' : '🔗 推广代理视图'}
+            </span>
           </div>
+          {isReseller && (
+            <div className="text-sm text-gray-500">
+              余额: <span className="font-semibold text-orange-500">${balance.toFixed(2)}</span>
+            </div>
+          )}
         </div>
+
+        {/* Mode explanation */}
+        {isReseller ? (
+          <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl text-sm text-purple-700">
+            显示折扣进货价（成本 ÷ {discountRate}）。下单后从余额扣除进货价，您可按任意零售价出售，差价全归您。
+          </div>
+        ) : (
+          <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">
+            显示零售价及预计佣金。客户通过您的推荐链接购买后，系统自动按利润比例结佣（A类80% / B类70% / C类60%）。
+          </div>
+        )}
 
         <div>
           <input
@@ -100,58 +133,89 @@ export default function Products({ user, products, error, balance }: Props) {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filtered.map(product => (
-            <Card key={product.id} className="hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-semibold text-gray-800">{product.name}</h3>
-                  {product.description && (
-                    <p className="text-sm text-gray-500 mt-1">{product.description}</p>
+          {filtered.map(product => {
+            const costPrice = (product as any).cost_price || product.price * 0.37
+            const wholesalePrice = getWholesalePrice(product.price, costPrice)
+            const profit = product.price - costPrice
+            const estimatedCommission = profit * 0.8 // A类
+
+            return (
+              <Card key={product.id} className="hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-800 truncate">{product.name}</h3>
+                    {product.description && (
+                      <p className="text-sm text-gray-500 mt-1 line-clamp-1">{product.description}</p>
+                    )}
+                  </div>
+                  <div className="text-right ml-4 flex-shrink-0">
+                    {isReseller ? (
+                      <>
+                        <p className="text-xl font-bold text-purple-600">${wholesalePrice.toFixed(2)}</p>
+                        <p className="text-xs text-gray-400 line-through">${product.price}</p>
+                        <p className="text-xs text-green-600">省${(product.price - wholesalePrice).toFixed(2)}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xl font-bold text-orange-500">${product.price}</p>
+                        <p className="text-xs text-green-600">+${estimatedCommission.toFixed(2)} 佣金</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {product.data_gb && (
+                    <span className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-lg">
+                      {product.data_gb}GB
+                    </span>
+                  )}
+                  {product.validity_days && (
+                    <span className="px-2 py-1 bg-green-50 text-green-600 text-xs rounded-lg">
+                      {product.validity_days}天
+                    </span>
+                  )}
+                  {product.countries?.slice(0, 3).map(c => (
+                    <span key={c} className="px-2 py-1 bg-gray-50 text-gray-600 text-xs rounded-lg">
+                      {c}
+                    </span>
+                  ))}
+                  {(product.countries?.length || 0) > 3 && (
+                    <span className="px-2 py-1 bg-gray-50 text-gray-400 text-xs rounded-lg">
+                      +{product.countries!.length - 3}
+                    </span>
+                  )}
+                  {isReseller && (
+                    <span className="px-2 py-1 bg-purple-50 text-purple-600 text-xs rounded-lg font-medium">
+                      利润空间 ${(product.price - wholesalePrice).toFixed(2)}+
+                    </span>
+                  )}
+                  {!isReseller && (
+                    <span className="px-2 py-1 bg-green-50 text-green-600 text-xs rounded-lg font-medium">
+                      佣金 ${estimatedCommission.toFixed(2)}(A类)
+                    </span>
                   )}
                 </div>
-                <div className="text-right ml-4">
-                  <p className="text-xl font-bold text-orange-500">${product.price}</p>
-                  {product.currency && product.currency !== 'USD' && (
-                    <p className="text-xs text-gray-400">{product.currency}</p>
-                  )}
-                </div>
-              </div>
 
-              <div className="flex flex-wrap gap-2 mb-4">
-                {product.data_gb && (
-                  <span className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-lg">
-                    {product.data_gb}GB
-                  </span>
+                {isReseller ? (
+                  <button
+                    onClick={() => {
+                      setSelectedProduct(product)
+                      setOrderError('')
+                      setOrderSuccess('')
+                    }}
+                    className="w-full py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    以 ${wholesalePrice.toFixed(2)} 进货
+                  </button>
+                ) : (
+                  <div className="w-full py-2 bg-gray-100 text-gray-500 text-sm font-medium rounded-lg text-center">
+                    通过推荐链接销售
+                  </div>
                 )}
-                {product.validity_days && (
-                  <span className="px-2 py-1 bg-green-50 text-green-600 text-xs rounded-lg">
-                    {product.validity_days}天
-                  </span>
-                )}
-                {product.countries?.slice(0, 3).map(c => (
-                  <span key={c} className="px-2 py-1 bg-gray-50 text-gray-600 text-xs rounded-lg">
-                    {c}
-                  </span>
-                ))}
-                {(product.countries?.length || 0) > 3 && (
-                  <span className="px-2 py-1 bg-gray-50 text-gray-400 text-xs rounded-lg">
-                    +{product.countries!.length - 3}
-                  </span>
-                )}
-              </div>
-
-              <button
-                onClick={() => {
-                  setSelectedProduct(product)
-                  setOrderError('')
-                  setOrderSuccess('')
-                }}
-                className="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors"
-              >
-                立即下单
-              </button>
-            </Card>
-          ))}
+              </Card>
+            )
+          })}
         </div>
 
         {filtered.length === 0 && !error && (
@@ -161,15 +225,24 @@ export default function Products({ user, products, error, balance }: Props) {
           </div>
         )}
 
-        {/* Order Modal */}
-        {selectedProduct && (
+        {/* Order Modal - Reseller only */}
+        {selectedProduct && isReseller && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
             <div className="bg-white rounded-2xl p-6 w-full max-w-md">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">确认下单</h3>
 
               <div className="bg-gray-50 rounded-xl p-4 mb-4">
                 <p className="font-medium text-gray-800">{selectedProduct.name}</p>
-                <p className="text-2xl font-bold text-orange-500 mt-1">${selectedProduct.price}</p>
+                {(() => {
+                  const costPrice = (selectedProduct as any).cost_price || selectedProduct.price * 0.37
+                  const wp = getWholesalePrice(selectedProduct.price, costPrice)
+                  return (
+                    <>
+                      <p className="text-2xl font-bold text-purple-600 mt-1">${wp.toFixed(2)} <span className="text-sm font-normal text-gray-400">进货价</span></p>
+                      <p className="text-sm text-gray-500 mt-1">零售价 ${selectedProduct.price}，利润空间 ${(selectedProduct.price - wp).toFixed(2)}+</p>
+                    </>
+                  )
+                })()}
               </div>
 
               <div className="mb-4">
@@ -186,33 +259,41 @@ export default function Products({ user, products, error, balance }: Props) {
                 <p className="text-xs text-gray-400 mt-1">eSIM 将发送到此邮箱</p>
               </div>
 
-              <div className="bg-yellow-50 rounded-xl p-3 mb-4">
-                <p className="text-sm text-yellow-700">
-                  下单后将从余额扣除 <strong>${selectedProduct.price}</strong>，当前余额 <strong>${balance.toFixed(2)}</strong>
-                </p>
-              </div>
+              {(() => {
+                const costPrice = (selectedProduct as any).cost_price || selectedProduct.price * 0.37
+                const wp = getWholesalePrice(selectedProduct.price, costPrice)
+                return (
+                  <>
+                    <div className="bg-yellow-50 rounded-xl p-3 mb-4">
+                      <p className="text-sm text-yellow-700">
+                        下单后将从余额扣除 <strong>${wp.toFixed(2)}</strong>，当前余额 <strong>${balance.toFixed(2)}</strong>
+                      </p>
+                    </div>
 
-              {balance < selectedProduct.price && (
-                <div className="bg-red-50 rounded-xl p-3 mb-4">
-                  <p className="text-sm text-red-600">余额不足，请先充值</p>
-                </div>
-              )}
+                    {balance < wp && (
+                      <div className="bg-red-50 rounded-xl p-3 mb-4">
+                        <p className="text-sm text-red-600">余额不足，请先充值</p>
+                      </div>
+                    )}
 
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setSelectedProduct(null)}
-                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors text-sm"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleOrder}
-                  disabled={ordering || balance < selectedProduct.price || !customerEmail}
-                  className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors text-sm disabled:opacity-50"
-                >
-                  {ordering ? '处理中...' : '确认下单'}
-                </button>
-              </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setSelectedProduct(null)}
+                        className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors text-sm"
+                      >
+                        取消
+                      </button>
+                      <button
+                        onClick={handleOrder}
+                        disabled={ordering || balance < wp || !customerEmail}
+                        className="flex-1 py-2.5 bg-purple-500 hover:bg-purple-600 text-white font-medium rounded-lg transition-colors text-sm disabled:opacity-50"
+                      >
+                        {ordering ? '处理中...' : '确认下单'}
+                      </button>
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           </div>
         )}
@@ -227,7 +308,7 @@ export const getServerSideProps: GetServerSideProps = withAuth(async (ctx, user)
 
   const { data: agent } = await supabase
     .from('agents')
-    .select('balance')
+    .select('balance, agent_type, discount_rate')
     .eq('id', user.id)
     .single()
 
@@ -256,7 +337,8 @@ export const getServerSideProps: GetServerSideProps = withAuth(async (ctx, user)
       country: p.country,
       type: p.type,
       profit_rate: p.profit_rate,
-    }))
+      cost_price: p.cost_price || p.price * 0.37,
+    } as any))
   } catch (e: any) {
     error = e.message || '获取产品失败'
   }
@@ -267,6 +349,8 @@ export const getServerSideProps: GetServerSideProps = withAuth(async (ctx, user)
       products,
       error: error || null,
       balance: agent?.balance || 0,
+      agentType: agent?.agent_type || 'affiliate',
+      discountRate: agent?.discount_rate || 1.0,
     },
   }
 })
