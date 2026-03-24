@@ -144,9 +144,11 @@ export default function Products({ user, products, error, balance, agentType, di
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map(product => {
-            const costPrice = (product as any).cost_price || product.price * 0.37
-            const wholesalePrice = getWholesalePrice(product.price, costPrice)
-            const profit = product.price - costPrice
+            const costPrice = (product as any).cost_price || product.price * 0.5 // 内部用，不显示
+            const resellerTier = (user as any)?.reseller_tier || null
+            const wholesalePrice = resellerTier
+              ? Math.max(product.price * (resellerTier === 'A' ? 0.70 : resellerTier === 'B' ? 0.75 : 0.80), costPrice * 1.05)
+              : product.price
             const estimatedCommission = getCommission(product.price, costPrice, agentType || 'affiliate')
 
             return (

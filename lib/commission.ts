@@ -1,74 +1,46 @@
 /**
- * tgesim 佣金计算逻辑
+ * tgesim 代理商定价逻辑
  * 
- * 利润 = 零售价 - 成本价
+ * 对代理商完全隐藏：成本价、利润率、折扣率
+ * 代理商只看到：进货价、建议零售价
  * 
- * 推广代理（affiliate）佣金比例：
- *   A类（利润率≥50%）：代理拿利润的80%，平台留20%
- *   B类（利润率30-50%）：代理拿利润的70%，平台留30%
- *   C类（利润率10-30%）：代理拿利润的60%，平台留40%
+ * 充值代理等级（按总充值金额）：
+ *   A级：累计充值 ≥ $2000，进货价 = 零售价×70%（但不低于成本×1.05）
+ *   B级：累计充值 ≥ $1500，进货价 = 零售价×75%
+ *   C级：累计充值 ≥ $1000，进货价 = 零售价×80%
  * 
- * 充值代理（reseller）佣金比例（比推广代理多5%）：
- *   A类：代理拿利润的85%，平台留15%
- *   B类：代理拿利润的75%，平台留25%
- *   C类：代理拿利润的65%，平台留35%
+ * 推广代理（affiliate）：
+ *   A类产品（利润率≥50%）：佣金 = 利润×80%
+ *   B类产品（30-50%）：佣金 = 利润×70%
+ *   C类产品（10-30%）：佣金 = 利润×60%
  */
 
 export type AgentType = 'affiliate' | 'reseller'
-export type ProductClass = 'A' | 'B' | 'C' | 'D'
+export type ResellerTier = 'A' | 'B' | 'C' | null
 
-// 利润率分类
-export function getProductClass(retailPrice: number, costPrice: number): ProductClass {
-  if (costPrice <= 0 || retailPrice <= 0) return 'D'
-  const profitRate = (retailPrice - costPrice) / retailPrice
-  if (profitRate >= 0.5) return 'A'
-  if (profitRate >= 0.3) return 'B'
-  if (profitRate >= 0.1) return 'C'
-  return 'D'
+// 根据充值金额判断充值代理等级
+export function getResellerTier(totalRecharge: number): ResellerTier {
+  if (totalRecharge >= 2000) return 'A'
+  if (totalRecharge >= 1500) return 'B'
+  if (totalRecharge >= 1000) return 'C'
+  return null
 }
 
-// 代理商佣金比例
-export function getCommissionRate(agentType: AgentType, productClass: ProductClass): number {
-  const rates = {
-    affiliate: { A: 0.80, B: 0.70, C: 0.60, D: 0 },
-    reseller:  { A: 0.85, B: 0.75, C: 0.65, D: 0 },
-  }
-  return rates[agentType][productClass]
+// 充值代理进货价（只对内部使用，代理看不到计算逻辑）
+export function getResellerPrice(retailPrice: number, costPrice: number, tier: ResellerTier): number {
+  const tierRates: Record<string, number> = { A: 0.70, B: 0.75, C: 0.80 }
+  const rate = tier ? tierRates[tier] : 0.85
+  const price = retailPrice * rate
+  const minPrice = costPrice * 1.05 // 保证我们不亏
+  return parseFloat(Math.max(price, minPrice).toFixed(2))
 }
 
-// 计算代理商佣金金额
-export function calculateCommission(
-  retailPrice: number,
-  costPrice: number,
-  agentType: AgentType
-): {
-  profit: number
-  productClass: ProductClass
-  commissionRate: number
-  commissionAmount: number
-  platformAmount: number
-} {
+// 推广代理佣金
+export function getAffiliateCommission(retailPrice: number, costPrice: number): number {
   const profit = retailPrice - costPrice
-  const productClass = getProductClass(retailPrice, costPrice)
-  const commissionRate = getCommissionRate(agentType, productClass)
-  const commissionAmount = parseFloat((profit * commissionRate).toFixed(2))
-  const platformAmount = parseFloat((profit * (1 - commissionRate)).toFixed(2))
-
-  return {
-    profit: parseFloat(profit.toFixed(2)),
-    productClass,
-    commissionRate,
-    commissionAmount,
-    platformAmount,
-  }
-}
-
-// 充值代理进货价（代理用余额购买的价格）
-export function getResellerPrice(retailPrice: number, costPrice: number): number {
-  const { commissionAmount } = calculateCommission(retailPrice, costPrice, 'reseller')
-  // 进货价 = 零售价 - 代理佣金
-  const resellerPrice = parseFloat((retailPrice - commissionAmount).toFixed(2))
-  // 保证进货价不低于成本价的105%（平台至少5%利润）
-  const minPrice = parseFloat((costPrice * 1.05).toFixed(2))
-  return Math.max(resellerPrice, minPrice)
+  const profitRate = profit / retailPrice
+  let rate = 0.60
+  if (profitRate >= 0.5) rate = 0.80
+  else if (profitRate >= 0.3) rate = 0.70
+  return parseFloat((profit * rate).toFixed(2))
 }
