@@ -32,13 +32,23 @@ export default function Products({ user, products, error, balance, agentType, di
     p.description?.toLowerCase().includes(search.toLowerCase())
   )
 
-  // For reseller: wholesale price = cost / discount_rate (e.g. cost $1.48 / 0.85 = $1.74)
-  // For affiliate: show retail price + estimated commission
+  // 进货价 = 零售价 - 代理佣金（85%利润），同时不低于成本×1.05
   const getWholesalePrice = (retailPrice: number, costPrice: number) => {
-    if (discountRate && discountRate < 1) {
-      return (costPrice / discountRate)
-    }
-    return costPrice * 1.15
+    const profit = retailPrice - costPrice
+    const commission = profit * 0.85 // 充值代理拿85%（A类）
+    const resellerPrice = retailPrice - commission
+    const minPrice = costPrice * 1.05
+    return Math.max(resellerPrice, minPrice)
+  }
+
+  // 获取佣金（根据利润率分类）
+  const getCommission = (retailPrice: number, costPrice: number, type: string) => {
+    const profit = retailPrice - costPrice
+    const profitRate = profit / retailPrice
+    let rate = type === 'reseller'
+      ? (profitRate >= 0.5 ? 0.85 : profitRate >= 0.3 ? 0.75 : 0.65)
+      : (profitRate >= 0.5 ? 0.80 : profitRate >= 0.3 ? 0.70 : 0.60)
+    return profit * rate
   }
 
   const handleOrder = async () => {
@@ -137,7 +147,7 @@ export default function Products({ user, products, error, balance, agentType, di
             const costPrice = (product as any).cost_price || product.price * 0.37
             const wholesalePrice = getWholesalePrice(product.price, costPrice)
             const profit = product.price - costPrice
-            const estimatedCommission = profit * 0.8 // A类
+            const estimatedCommission = getCommission(product.price, costPrice, agentType || 'affiliate')
 
             return (
               <Card key={product.id} className="hover:shadow-md transition-shadow">
