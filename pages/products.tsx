@@ -408,6 +408,7 @@ export const getServerSideProps: GetServerSideProps = withAuth(async (ctx, user)
       balance: agent?.balance || 0,
       agentType: agent?.agent_type || 'affiliate',
       discountRate: agent?.discount_rate || 1.0,
+      referralCode: agent?.referral_code || null,
     },
   }
 })
