@@ -128,7 +128,7 @@ export default function Products({ user, products, error, balance, agentType, di
         {/* Mode explanation */}
         {isReseller ? (
           <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl text-sm text-purple-700">
-            显示折扣进货价（成本 ÷ {discountRate}）。下单后从余额扣除进货价，您可按任意零售价出售，差价全归您。
+            显示折扣进货价（成本 ÷ {discountRate}）。下单后从余额扣除进货价，您可按任意零售价出售，差价收益归代理商所有。
           </div>
         ) : (
           <div className="space-y-2">
