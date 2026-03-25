@@ -192,7 +192,11 @@ export default function Products({ user, products, error, balance, agentType, di
             const costPrice = (product as any).cost_price || product.price * 0.5 // 内部用，不显示
             const resellerTier = (user as any)?.reseller_tier || null
             const wholesalePrice = resellerTier
-              ? Math.max(product.price * (resellerTier === 'A' ? 0.70 : resellerTier === 'B' ? 0.75 : 0.80), costPrice * 1.05)
+              ? (() => {
+                  const profit = product.price - costPrice
+                  const rate = resellerTier === 'A' ? 0.85 : resellerTier === 'B' ? 0.75 : 0.65
+                  return Math.max(product.price - profit * rate, costPrice * 1.05)
+                })()
               : product.price
             const estimatedCommission = getCommission(product.price, costPrice, agentType || 'affiliate')
 
