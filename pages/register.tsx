@@ -18,6 +18,7 @@ export default function Register() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [agreed, setAgreed] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -248,10 +249,29 @@ export default function Register() {
                 />
               </div>
 
+              <div className="flex items-start gap-2 mt-4">
+                <input 
+                  type="checkbox" 
+                  id="agree" 
+                  checked={agreed} 
+                  onChange={e => setAgreed(e.target.checked)}
+                  className="mt-1 cursor-pointer"
+                />
+                <label htmlFor="agree" className="text-sm text-gray-600 cursor-pointer">
+                  我已阅读并同意 
+                  <a href="/agreement" target="_blank" className="text-blue-500 hover:underline">《代理商合作协议》</a>
+                  ，包括充值等级说明、退款政策、保密条款等内容。
+                </label>
+              </div>
+
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                disabled={loading || !agreed}
+                className={`w-full py-2.5 font-medium rounded-lg transition-colors ${
+                  agreed 
+                    ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
                 {loading ? '提交中...' : '提交申请'}
               </button>
