@@ -12,5 +12,6 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
     if (user.status === 'active') return { redirect: { destination: '/dashboard', permanent: false } }
     return { redirect: { destination: '/pending', permanent: false } }
   }
+  // If no user is logged in, redirect to login page
   return { redirect: { destination: '/login', permanent: false } }
 }
